@@ -22,5 +22,25 @@ def get_tasks(db:Session):
 def get_one_task(task_id:int, db:Session):
     task = db.query(TaskModel).get(task_id)
     if not task:
-        raise HTTPException(404, detail="task_id is Incorrect!")
+        raise HTTPException(404, detail="task_id is Incorrect !")
     return {"status":"Task Fetched Successfully", "data":task}
+
+def update_task(body:TaskSchema, task_id:int, db:Session):
+    task = db.query(TaskModel).get(task_id)
+    if not task:
+        raise HTTPException(404, detail="task_id is Incorrect !")
+    data = body.model_dump()
+    for field, value in data.items():
+        setattr(task, field, value)
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return {"status":"Task Updated Successfully", "data":task}
+
+def delete_task(task_id:int, db:Session):
+    task = db.query(TaskModel).get(task_id)
+    if not task:
+        raise HTTPException(404, detail="task_id is Incorrect !")
+    db.delete(task)
+    db.commit()
+    return {"status":"Task Deleted Successfully"}
