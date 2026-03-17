@@ -11,3 +11,7 @@ class UserOut(BaseModel):
     name : str
     username : str
     email : str
+
+class LoginSchema(BaseModel):
+    username : str
+    password: str
