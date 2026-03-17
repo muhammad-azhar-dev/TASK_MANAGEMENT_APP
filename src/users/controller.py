@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session
 from src.users.dtos import UserSchema, LoginSchema
 from src.users.model import UserModel
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Request
 from pwdlib import PasswordHash
 from src.utils.settings import settings
 from datetime import datetime, timedelta
 import jwt
+from jwt import InvalidTokenError
 
 password_hash = PasswordHash.recommended()
 
@@ -50,5 +51,30 @@ def login_user(body:LoginSchema, db:Session):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You Entered Wrong Password !")
     # Generate token
     exp_time = datetime.now() + timedelta(minutes=settings.EXP_TIME)
-    token = jwt.encode({"_id":user.id, "username":user.username, "exp":exp_time}, settings.SECRET_KEY, settings.ALGORITHM)
+    token = jwt.encode({"_id":user.id, "username":user.username, "exp":exp_time.timestamp()}, settings.SECRET_KEY, settings.ALGORITHM)
     return {"token":token}
+
+def is_auth(request:Request, db:Session):
+    try:
+        token = request.headers.get("authorization")
+        if not token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are unauthorized !")
+        token = token.split(" ")[-1]
+
+        # validate token
+        data = jwt.decode(token, settings.SECRET_KEY, settings.ALGORITHM)
+        user_id = data.get("_id")
+        username = data.get("username")
+
+
+        # check user id has user or not
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are unauthorized !")
+        # check username exist or not
+        user = db.query(UserModel).filter(UserModel.username == username).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are unauthorized !")
+        return user
+    except InvalidTokenError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="You are unauthorized !")
